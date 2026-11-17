@@ -1,0 +1,152 @@
+# Build the common CREATE SWAT+ executable from this repository:
+#   official SWAT+ rev 62.0.0 (first commit) + the CREATE fixes (later commits, see CREATE.md),
+#   compiled on Windows with Intel classic ifort -- the compiler behind the official "ifo" exe.
+# gfortran is never installed or used. The job fails if the compiler is not Intel classic,
+# if the exe depends on Intel runtime DLLs, or if the Ames_sub1 test run does not complete.
+
+name: Build SWAT+ 62.0.0 CREATE (Intel ifort, Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ifort_version:
+        description: "Intel classic ifort version (fortran-lang/setup-fortran 'intel-classic'; windows-2022 supports 2021.6, 2021.9-2021.12)"
+        required: true
+        default: "2021.12"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/build-create-ifort-windows.yml"
+    tags: ["v*"]
+
+permissions:
+  contents: write   # only used to attach the exe to a GitHub release when a v* tag is pushed
+
+env:
+  SWATPLUS_TAG: "62.0.0"
+  IFORT_VERSION: ${{ inputs.ifort_version || '2021.12' }}
+
+jobs:
+  build:
+    runs-on: windows-2022   # the only hosted Windows image that still offers classic ifort
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history, for the change list in BUILD_INFO.txt
+
+      - name: Set up MSVC (linker for Intel Fortran)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Intel classic ifort ${{ env.IFORT_VERSION }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: intel-classic
+          version: ${{ env.IFORT_VERSION }}
+
+      - name: Check compiler is Intel classic ifort
+        shell: pwsh
+        run: |
+          Write-Host "FC=$env:FC"
+          if ($env:FC -ne 'ifort') { throw "Expected FC=ifort, got '$env:FC'" }
+          $banner = (cmd /c "ifort 2>&1") -join "`n"
+          Write-Host $banner
+          if ($banner -notmatch 'Intel\(R\) Fortran.*Compiler Classic') { throw "Intel classic ifort banner not found" }
+          ($banner -split "`n")[0] | Out-File -Encoding utf8 compiler.txt
+          exit 0
+
+      - name: Configure (CMake, NMake, Release, static Intel runtime)
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "NMake Makefiles" `
+            -D CMAKE_Fortran_COMPILER=ifort `
+            -D CMAKE_BUILD_TYPE=Release `
+            -D CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded `
+            -D BUILD_TESTING=OFF `
+            -D TAG=${{ env.SWATPLUS_TAG }}
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Content build/CMakeCache.txt | Select-String 'CMAKE_Fortran_COMPILER_ID|CMAKE_Fortran_FLAGS'
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake --build build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check exe (ifo label, no Intel runtime DLLs)
+        id: exe
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem build -Filter "swatplus-*.exe" | Select-Object -First 1
+          if (-not $exe) { throw "No swatplus exe was built" }
+          Write-Host "Built: $($exe.Name)"
+          # CMakeLists.txt labels the classic Intel compiler (ID 'Intel') as 'ifo', like the official exe.
+          if ($exe.Name -notmatch '-ifo-win_amd64-Rel\.exe$') { throw "Unexpected exe name (not an ifort Release build): $($exe.Name)" }
+          $deps = (dumpbin /nologo /dependents $exe.FullName) -join "`n"
+          Write-Host $deps
+          if ($deps -match '(?i)libifcoremd|libifportmd|libmmd|libiomp5md|svml_dispmd|libgfortran') {
+            throw "exe depends on compiler runtime DLLs; it must be statically linked like the official exe"
+          }
+          $name = "swatplus-$env:SWATPLUS_TAG-create-ifo-win_amd64-Rel.exe"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item $exe.FullName "dist/$name"
+          "name=$name" >> $env:GITHUB_OUTPUT
+
+      - name: Smoke test on Ames_sub1 (screen output must reach the console, no fort.6)
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse refdata/Ames_sub1 run
+          Push-Location run
+          & "../dist/${{ steps.exe.outputs.name }}" *> ../dist/smoke_test_Ames_sub1.log
+          $code = $LASTEXITCODE
+          Pop-Location
+          Get-Content dist/smoke_test_Ames_sub1.log -Tail 15
+          if ($code -ne 0) { throw "Model exited with code $code" }
+          if (Test-Path run/fort.6) { throw "fort.6 was written: screen output did not go to the console" }
+          if (-not (Select-String -Quiet -Path dist/smoke_test_Ames_sub1.log -Pattern 'Execution successfully completed')) {
+            throw "Run did not report 'Execution successfully completed'"
+          }
+
+      - name: Write BUILD_INFO.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe="dist/${{ steps.exe.outputs.name }}"
+          root=$(git rev-list --max-parents=0 HEAD)
+          {
+            echo "SWAT+ CREATE common build"
+            echo "Executable:   $(basename "$exe")"
+            echo "SHA256:       $(sha256sum "$exe" | cut -d' ' -f1)"
+            echo "Source:       https://github.com/$GITHUB_REPOSITORY commit $GITHUB_SHA"
+            echo "Based on:     official SWAT+ $SWATPLUS_TAG (swat-model/swatplus commit de210d64db4f1d75e110bd6af33ea9c333d27b8a), first commit $root"
+            echo "Compiler:     $(head -n1 compiler.txt | tr -d '\r')"
+            echo "Build:        CMake Release, NMake, static Intel runtime (CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded)"
+            echo "Run:          $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "Built:        $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "Model source changes since the official $SWATPLUS_TAG (see CREATE.md):"
+            git log --reverse --format='  %h %s' "$root..HEAD" -- src
+            echo
+            echo "Changed source files:"
+            git diff --stat "$root" HEAD -- src
+          } > dist/BUILD_INFO.txt
+          git diff "$root" HEAD -- src > dist/create-changes-vs-62.0.0.diff
+          cat dist/BUILD_INFO.txt
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: swatplus-${{ env.SWATPLUS_TAG }}-create-ifo-win_amd64
+          path: dist/
+
+      - name: Attach to GitHub release (only for v* tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

@@ -1,3 +1,5 @@
+> **CREATE common build.** This repository is the official SWAT+ rev 62.0.0 (first commit, unmodified) plus a small set of documented fixes, built with Intel classic ifort on Windows. See [CREATE.md](CREATE.md) for the list of changes and how to get the exe. The rest of this README is the original SWAT+ README.
+
 [![Release](https://img.shields.io/github/release/swat-model/swatplus.svg?style=flat-square)](https://github.com/swat-model/swatplus/releases)
 
 # SWAT+
