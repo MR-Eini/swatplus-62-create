@@ -37,6 +37,10 @@
           !! lower lai by same ratio
           lai_init = pcom(j)%plg(ipl)%lai
           pcom(j)%plg(ipl)%lai = rto * lai_init
+          !! LAI FIX (rev 62.0.0): with rto = 0 the LAI of every perennial dropped to 0 at dormancy,
+          !! also for evergreens. Keep the minimum LAI of plants.plt (lai_min), as in rev 61.0;
+          !! never raise LAI above its value before dormancy. Biomass handling is unchanged.
+          pcom(j)%plg(ipl)%lai = max (pcom(j)%plg(ipl)%lai, min (lai_init, pldb(idp)%alai_min))
           !! compute leaf biomass drop
           leaf_drop%m = rto * pl_mass(j)%leaf(ipl)%m
           leaf_drop%n = leaf_drop%m * pcom(j)%plm(ipl)%n_fr
