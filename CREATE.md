@@ -14,10 +14,10 @@ To see every change against the official source: `git diff <first commit> HEAD -
 
 | Release | igrow fix: perennial start day | Status |
 |---|---|---|
-| `v62.0.0-create.2` | 0.15 of the base-0 heat units (same day as annual crops) | **current, use this** |
-| `v62.0.0-create.1` | end of dormancy (day length) | superseded: do not calibrate perennials with `days_mat > 0` with it |
+| `v62.0.0-create.2` | 0.15 of the base-0 heat units (same day as annual crops) | **the only release, use this** |
+| `v62.0.0-create.1` | end of dormancy (day length) | withdrawn: release and tag deleted on 2026-11-17. If you still have its exe, replace it, and do not calibrate perennials with `days_mat > 0` with it. |
 
-Both releases contain the same LAI fix, build fix and banner. They differ only in the igrow start day.
+Both had the same LAI fix, build fix and banner. They differ only in the igrow start day.
 
 **Why create.2.** An A/B test on CREATE_PL (15,136 HRUs, 2000–2005) compared three exes: the original 62.0.0, the end-of-dormancy start and the 0.15 heat-unit start.
 - **create.1** removed the HRU-order dependence, but made every `fesc` meadow stunted: PHU at harvest about 10, no regrowth after the first cut, yield −40%.
