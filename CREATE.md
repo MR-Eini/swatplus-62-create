@@ -38,7 +38,7 @@ From the `igrow` analysis. Neither is triggered by perennials whose `days_mat` e
 
 ## Build
 
-[`.github/workflows/build-create-ifort-windows.yml`](.github/workflows/build-create-ifort-windows.yml) runs on every push that changes `src/`, on `v*` tags, and manually (**Actions → Run workflow**, where you can also pick the ifort version).
+[`.github/workflows/build-create-ifort-windows.yml`](.github/workflows/build-create-ifort-windows.yml) runs on every push that changes `src/`, when a release is published, and manually (**Actions → Run workflow**, where you can also pick the ifort version).
 
 **Compiler:** Intel classic ifort **2021.6**, the version the official 62.0.1 `ifo` exe reports in its banner. Release build, static Intel runtime, on the `windows-2022` GitHub runner.
 
@@ -56,7 +56,12 @@ Each artifact contains:
 - `changes-vs-62.0.0.diff`: the full source diff against the official 62.0.0
 - `smoke_test_Ames_sub1.log`
 
-Pushing a tag `v*` (e.g. `v62.0.0-create.1`) also attaches these files to a GitHub release, which gives partners a stable download link.
+**Releases.** Publish a release on GitHub (**Releases → Draft a new release**, tag `v62.0.0-create.N` on `main`). The workflow then builds both variants from that tag and attaches to the release:
+
+- both exes
+- one zip per variant with the exe, `BUILD_INFO.txt`, the diff and the smoke log
+
+This gives partners a stable download link without a GitHub login.
 
 A build fails if:
 
@@ -81,4 +86,4 @@ Run the `create` and the `reference` exe on copies of the same TxtInOut. Both ar
 1. Change the file in `src/` and commit it alone. In the message, describe the problem and the fix, and link the upstream issue if there is one.
    - A change that is only needed to compile and does not change results gets a commit subject starting with **`Build fix`**. The reference exe includes it.
 2. Add a row to the tables above.
-3. Push. The workflow rebuilds; tag a release (`v62.0.0-create.N`) when the case studies should switch to it.
+3. Push. The workflow rebuilds. When the case studies should switch to it, publish a release `v62.0.0-create.N`.

@@ -24,10 +24,11 @@ on:
       - "src/**"
       - "CMakeLists.txt"
       - ".github/workflows/build-create-ifort-windows.yml"
-    tags: ["v*"]
+  release:
+    types: [published]   # publish a release on GitHub (by a person); this run attaches the files to it
 
 permissions:
-  contents: write   # only used to attach the exe to a GitHub release when a v* tag is pushed
+  contents: write   # only used to attach the files to a release
 
 env:
   SWATPLUS_TAG: "62.0.0"
@@ -181,8 +182,30 @@ jobs:
           name: swatplus-${{ env.SWATPLUS_TAG }}-${{ matrix.variant }}-ifo-win_amd64
           path: dist/
 
-      - name: Attach to GitHub release (only for v* tags)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+  # Attach both builds to the release that was published (the release itself, its title,
+  # notes and author, are made by a person on GitHub; this job only uploads files to it).
+  attach-to-release:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download both builds
+        uses: actions/download-artifact@v4
         with:
-          files: dist/*
+          path: artifacts
+
+      - name: Package (exe + one zip per variant with exe, BUILD_INFO, diff, smoke log)
+        run: |
+          set -euo pipefail
+          mkdir upload
+          for d in artifacts/*/; do
+            name=$(basename "$d")
+            cp "$d"/*.exe upload/
+            (cd "$d" && zip -q -r "../../upload/$name.zip" .)
+          done
+          ls -l upload
+
+      - name: Upload to release ${{ github.event.release.tag_name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" upload/* --clobber --repo "$GITHUB_REPOSITORY"
