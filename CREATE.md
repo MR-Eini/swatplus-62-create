@@ -23,6 +23,12 @@ To see every change against the official source: `git diff <first commit> HEAD -
 |------|---------|-----|
 | `src/actions.f90`, `src/hru_control.f90`, `src/mgt_sched.f90` | Their `external ::` lists name `mgt_newtillmix` and `mgt_newtillmix_cswat3`, routines that no longer exist and are never called. gfortran ignores this; Intel ifort on Windows emits a link reference for each name, so linking fails with `LNK2001: unresolved external symbol MGT_NEWTILLMIX` / `MGT_NEWTILLMIX_CSWAT3`. | Remove the two names from the declaration lists. No executable statement changes. For `hru_control.f90` this is the same change upstream made in 62.0.1. |
 
+### Identification (no effect on results)
+
+| File | Change |
+|------|--------|
+| `src/main.f90.in` | The start-up banner, on screen and in `simulation.out`, reads `Revision 62.0.0 - CREATE`, so every run shows it was made with the CREATE exe. The reference exe keeps the original banner. |
+
 ### Known, not changed
 
 From the `igrow` analysis. Neither is triggered by perennials whose `days_mat` ends before day 365:

@@ -30,7 +30,7 @@
       open (9003,file='simulation.out')
       write (9003,1000)
  1000 format(1x,"                  SWAT+               ",/,             &
-     &          "             Revision @SWAT_VERSION@  ",/,             &
+     &          "             Revision @SWAT_VERSION@ - CREATE",/,      &
      &          "      Soil & Water Assessment Tool    ",/,             &
      &          "@CMAKE_Fortran_COMPILER_ID@ (@CMAKE_Fortran_COMPILER_VERSION@), @ISO@, @CMAKE_HOST_SYSTEM_NAME@",/,             &
      &          "    Program reading . . . executing",/)
