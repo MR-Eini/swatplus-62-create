@@ -130,7 +130,10 @@
           pcom(j)%plcur(ipl)%gro = pcomdb(icom)%pl(ipl)%igro
           pcom(j)%plcur(ipl)%idorm = "y"
           idp = pcomdb(icom)%pl(ipl)%db_num
-          
+          !! IGROW FIX (rev 62.0.0): igrow has an initialiser and is therefore SAVEd between calls.
+          !! Reset it for every plant so phumat never depends on the plant/HRU initialised before.
+          igrow = 0
+
           !! initialize surface residue litter pools - same for static and century pools
           pl_mass(j)%rsd(ipl)%m = pl_mass(j)%rsd(ipl)%m + pcomdb(icom)%pl(ipl)%rsdin
           pl_mass(j)%rsd(ipl)%c = pl_mass(j)%rsd(ipl)%c + 0.42 * pcomdb(icom)%pl(ipl)%rsdin
@@ -205,7 +208,10 @@
             end if
           
             ! switched from starting hu at dormancy (daylength) to 0.15 hu (above) like summer annuals
-            if (pldb(idp)%typ == "null" .or. pldb(idp)%typ == "null1") then
+            !! IGROW FIX (rev 62.0.0): perennials with days_mat > 0 had no start day of their own;
+            !! they now start accumulating heat units at the end of dormancy, like null/null1.
+            if (pldb(idp)%typ == "null" .or. pldb(idp)%typ == "null1" .or.     &
+                pldb(idp)%typ == "perennial") then
               if (wgn(iwgn)%lat > 0.) then
                 igrow = 1
               else
