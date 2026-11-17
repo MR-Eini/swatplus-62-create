@@ -34,31 +34,45 @@ From the `igrow` analysis. Neither is triggered by perennials whose `days_mat` e
 
 [`.github/workflows/build-create-ifort-windows.yml`](.github/workflows/build-create-ifort-windows.yml) runs on every push that changes `src/`, on `v*` tags, and manually (**Actions → Run workflow**, where you can also pick the ifort version).
 
-The artifact `swatplus-62.0.0-create-ifo-win_amd64` contains:
+**Compiler:** Intel classic ifort **2021.6**, the version the official 62.0.1 `ifo` exe reports in its banner. Release build, static Intel runtime, on the `windows-2022` GitHub runner.
 
-- `swatplus-62.0.0-create-ifo-win_amd64-Rel.exe`
+Two exes are built with identical compiler and settings:
+
+| Artifact | Source | Use |
+|---|---|---|
+| `swatplus-62.0.0-create-ifo-win_amd64` | this repository: 62.0.0 + all CREATE changes | **the common CREATE exe** |
+| `swatplus-62.0.0-reference-ifo-win_amd64` | original 62.0.0 + build-only commits (subject starts with `Build fix`) | A/B comparison only |
+
+Each artifact contains:
+
+- the exe
 - `BUILD_INFO.txt`: source commit, ifort version, exe SHA-256, list of changes
-- `create-changes-vs-62.0.0.diff`: the full source diff against the official 62.0.0
+- `changes-vs-62.0.0.diff`: the full source diff against the official 62.0.0
 - `smoke_test_Ames_sub1.log`
 
 Pushing a tag `v*` (e.g. `v62.0.0-create.1`) also attaches these files to a GitHub release, which gives partners a stable download link.
 
-The workflow fails if:
+A build fails if:
 
 - the compiler is not Intel classic ifort;
 - the exe needs Intel runtime DLLs (the official exe is statically linked);
-- the Ames_sub1 test run does not end with "Execution successfully completed";
+- the exe does not start and write its screen output to the console;
 - `fort.6` is written.
+
+**About the smoke test.** The test data shipped with the 62.0.0 source (`refdata/Ames_sub1`, `refdata/Osu_1hru`) does not run to completion with any released 62.0.x exe. The official SWAT+ Editor exes, both `ifo` (Intel) and `gnu`, report `corn not found in plants.plt` and stop with an access violation in `soils_init.f90` line 295 (checked 2026-11-17 with `swatplus-62.0.1-ifo/gnu-win_amd64-Rel.exe`). The CREATE exe stops at the same place, so the smoke test only checks that the exe starts, writes to the console and reads its inputs. The real check is the A/B run below.
 
 The upstream workflows (`build.yml`, `doc.yml`, `test.yml`) were removed in this repository because they build with gfortran. They remain in the first commit.
 
-## Checking the fixes in a real project
+## Checking the fixes in a real project (A/B run)
+
+Run the `create` and the `reference` exe on copies of the same TxtInOut. Both are built identically, so every difference in output comes from the CREATE model fixes:
 
 - **LAI (1):** in `hru_pw_*` / `basin_pw_*` output, perennial LAI no longer drops to 0.000 in winter; it stays at about `lai_min`.
-- **igrow (2):** with `fesc` `days_mat` 100–130, `phuplant` in `mgt_out` is about equal for HRU 3804 and HRU 7539 (Łupawa).
+- **igrow (2):** only matters for perennials with `days_mat > 0`. With `fesc` `days_mat` 100–130, `phuplant` in `mgt_out` is about equal for HRU 3804 and HRU 7539 (Łupawa). With `days_mat = 0` everywhere, fix 2 changes nothing.
 
 ## Adding a fix
 
 1. Change the file in `src/` and commit it alone. In the message, describe the problem and the fix, and link the upstream issue if there is one.
-2. Add a row to the table above.
+   - A change that is only needed to compile and does not change results gets a commit subject starting with **`Build fix`**. The reference exe includes it.
+2. Add a row to the tables above.
 3. Push. The workflow rebuilds; tag a release (`v62.0.0-create.N`) when the case studies should switch to it.
