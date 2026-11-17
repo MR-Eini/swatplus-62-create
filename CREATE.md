@@ -10,12 +10,27 @@ The exe writes its screen output to the console like the official one, so no `fo
 
 To see every change against the official source: `git diff <first commit> HEAD -- src`.
 
+## Versions
+
+| Release | igrow fix: perennial start day | Status |
+|---|---|---|
+| `v62.0.0-create.2` | 0.15 of the base-0 heat units (same day as annual crops) | **current, use this** |
+| `v62.0.0-create.1` | end of dormancy (day length) | superseded: do not calibrate perennials with `days_mat > 0` with it |
+
+Both releases contain the same LAI fix, build fix and banner. They differ only in the igrow start day.
+
+**Why create.2.** An A/B test on CREATE_PL (15,136 HRUs, 2000–2005) compared three exes: the original 62.0.0, the end-of-dormancy start and the 0.15 heat-unit start.
+- **create.1** removed the HRU-order dependence, but made every `fesc` meadow stunted: PHU at harvest about 10, no regrowth after the first cut, yield −40%.
+- **The 0.15 heat-unit start** also removes the order dependence, and gives every meadow the behaviour of the original's normal group: PHU at harvest about 0.5, normal regrowth. The formerly stunted HRUs 3804–5907 now reach 12,000 instead of 1,400 kg/ha max. biomass. `fesc_mgt` keeps its original results.
+
+Both exes print `Revision 62.0.0 - CREATE`. Use `BUILD_INFO.txt` or the release tag to tell them apart.
+
 ## Changes to the model source
 
 | # | File | Problem in 62.0.0 | Fix | Upstream |
 |---|------|-------------------|-----|----------|
 | 1 | `src/pl_dormant.f90` | `rto` is hard-coded to 0 and the `alai_min` floor was removed, so LAI of **every perennial** (evergreens too) drops to exactly 0 at dormancy. | One line after the LAI reduction: `lai = max(lai, min(lai_init, alai_min))`. LAI stays at `lai_min` from `plants.plt`, as in rev 61, and is never raised above its pre-dormancy value. Biomass handling unchanged. (Priya, 2026-11-03.) | [#245](https://github.com/swat-model/swatplus/issues/245) (open) |
-| 2 | `src/plant_init.f90` | `igrow` has an initialiser, so it is `SAVE`d between calls. For a `perennial` with `days_mat > 0` it is never set, so `phumat` is summed from the planting day of whatever annual crop was initialised before it. Perennial PHU then depends on HRU order (Łupawa: two meadow groups with ~12× different `phumat`). | Reset `igrow = 0` for every plant, and let `perennial` start heat-unit accumulation at the end of dormancy, like `null`/`null1`. (Mikołaj, 2026-11-16.) | not yet reported |
+| 2 | `src/plant_init.f90` | `igrow` has an initialiser, so it is `SAVE`d between calls. For a `perennial` with `days_mat > 0` it is never set, so `phumat` is summed from the planting day of whatever annual crop was initialised before it. Perennial PHU then depends on HRU order (Łupawa: two meadow groups with ~12× different `phumat`). | Reset `igrow = 0` for every plant, and let `perennial` start heat-unit accumulation on the same day as annual crops: when 0.15 of the year's base-0 heat units are reached. (Problem reported by Mikołaj, 2026-11-16. Start-day rule chosen after an A/B test on CREATE_PL, 2026-11-17; see *Versions*.) | not yet reported |
 
 ### Build-only change (no effect on results)
 
@@ -34,7 +49,7 @@ To see every change against the official source: `git diff <first commit> HEAD -
 From the `igrow` analysis. Neither is triggered by perennials whose `days_mat` ends before day 365:
 
 1. In the final heat-unit loop of `plant_init`, the northern-hemisphere branch calls `xmon(iday)` without wrapping days above 365. `xmon` then leaves the month unchanged.
-2. After the dormancy search loop for `null`/`null1`/`perennial`, `igrow = iday` is used even when the loop ended without finding the end of dormancy.
+2. After the dormancy search loop for `null`/`null1`, `igrow = iday` is used even when the loop ended without finding the end of dormancy.
 
 ## Build
 

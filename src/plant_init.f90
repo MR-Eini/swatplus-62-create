@@ -173,8 +173,11 @@
           else
             ! if positive assume days to maturity
             ! calculate planting day for summer annuals
+            !! IGROW FIX (rev 62.0.0): perennials with days_mat > 0 use the same start day as annuals
+            !! (0.15 of the base-0 heat units of the year).
             if (pldb(idp)%typ == "warm_annual" .or. pldb(idp)%typ == "warm_annual_tuber" .or.   &
-                pldb(idp)%typ == "cold_annual" .or. pldb(idp)%typ == "cold_annual_tuber") then
+                pldb(idp)%typ == "cold_annual" .or. pldb(idp)%typ == "cold_annual_tuber" .or.   &
+                pldb(idp)%typ == "perennial") then
               iday_sum = 181
               phutot = 0.
               phu0 = 0.15 * phu0    !assume planting at 0.15 base 0 heat units
@@ -208,10 +211,7 @@
             end if
           
             ! switched from starting hu at dormancy (daylength) to 0.15 hu (above) like summer annuals
-            !! IGROW FIX (rev 62.0.0): perennials with days_mat > 0 had no start day of their own;
-            !! they now start accumulating heat units at the end of dormancy, like null/null1.
-            if (pldb(idp)%typ == "null" .or. pldb(idp)%typ == "null1" .or.     &
-                pldb(idp)%typ == "perennial") then
+            if (pldb(idp)%typ == "null" .or. pldb(idp)%typ == "null1") then
               if (wgn(iwgn)%lat > 0.) then
                 igrow = 1
               else
